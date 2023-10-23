@@ -13,7 +13,7 @@ type Stage interface {
 	Run(ctx context.Context, in <-chan Payload, errC chan<- error, out chan<- Payload)
 }
 
-type pipe struct {
+type Pipe struct {
 	stages  []Stage
 	errFunc ErrorFunc
 }
@@ -30,9 +30,9 @@ func (conf *Config) validate() {
 	}
 }
 
-func NewPipe(conf *Config, stages ...Stage) *pipe {
+func NewPipe(conf *Config, stages ...Stage) *Pipe {
 
-	p := pipe{
+	p := Pipe{
 		stages: stages,
 	}
 
@@ -113,7 +113,7 @@ func NewPipe(conf *Config, stages ...Stage) *pipe {
 // 	return err
 // }
 
-func (p *pipe) onError(err error) {
+func (p *Pipe) onError(err error) {
 	if p.errFunc != nil {
 		p.errFunc(err)
 	}
@@ -121,7 +121,7 @@ func (p *pipe) onError(err error) {
 
 type ErrorFunc func(err error)
 
-func (p *pipe) OnError(fn ErrorFunc) {
+func (p *Pipe) OnError(fn ErrorFunc) {
 	p.errFunc = fn
 }
 
@@ -136,7 +136,7 @@ type Destination interface {
 	Consume(ctx context.Context, p Payload) error
 }
 
-func (p *pipe) Run(ctx context.Context, src Source, dst Destination) error {
+func (p *Pipe) Run(ctx context.Context, src Source, dst Destination) error {
 	// in := make(chan Payload)
 	// out := make(chan Payload)
 	errC := make(chan error)
