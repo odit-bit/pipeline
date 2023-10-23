@@ -127,7 +127,7 @@ func (ms *mockSource) Next() bool {
 }
 
 // Value implements Source.
-func (ms *mockSource) Value() Payload {
+func (ms *mockSource) Payload() Payload {
 	v := ms.src[ms.idx]
 	p := mockPayload{
 		value: v,
@@ -145,7 +145,7 @@ var _ Destination = (*mockDest)(nil)
 type mockDest struct{}
 
 // Consume implements Destination.
-func (*mockDest) Consume(p Payload) error {
+func (*mockDest) Consume(ctx context.Context, p Payload) error {
 	return nil
 }
 

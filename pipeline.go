@@ -129,11 +129,11 @@ func (p *pipe) OnError(fn ErrorFunc) {
 
 type Source interface {
 	Next() bool
-	Value() Payload
+	Payload() Payload
 	Error() error
 }
 type Destination interface {
-	Consume(p Payload) error
+	Consume(ctx context.Context, p Payload) error
 }
 
 func (p *pipe) Run(ctx context.Context, src Source, dst Destination) error {
@@ -196,7 +196,7 @@ func (p *pipe) Run(ctx context.Context, src Source, dst Destination) error {
 func sourceFunc(ctx context.Context, src Source, in chan<- Payload, errC chan<- error) {
 
 	for src.Next() {
-		p := src.Value()
+		p := src.Payload()
 		select {
 		case <-ctx.Done():
 			return
@@ -220,7 +220,7 @@ func destFunc(ctx context.Context, dst Destination, out <-chan Payload, errC cha
 			if !ok {
 				return
 			}
-			if err := dst.Consume(v); err != nil {
+			if err := dst.Consume(ctx, v); err != nil {
 				errC <- err
 				return
 			}
