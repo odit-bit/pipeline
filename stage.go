@@ -30,9 +30,13 @@ func (f *fifo) Run(ctx context.Context, in <-chan Payload, errCh chan<- error, o
 				return
 			}
 
+			// should check nill payload
 			newP, err := f.proc.Process(ctx, p)
 			if err != nil {
 				errCh <- err
+				continue
+			}
+			if newP == nil {
 				continue
 			}
 
