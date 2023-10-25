@@ -15,11 +15,11 @@ func Test_Fifo_Run(t *testing.T) {
 		payload         Payload
 		proc            Processor
 		testErr         error
+		expectError     bool
 		expectedPayload Payload
 	}{
 		{
 			payload: &mockPayload{value: "pass"},
-
 			proc: func() ProcessorFunc {
 				return func(ctx context.Context, payload Payload) (Payload, error) {
 					mock, _ := payload.(*mockPayload)
@@ -29,8 +29,8 @@ func Test_Fifo_Run(t *testing.T) {
 					return nil, errTest
 				}
 			}(),
-
 			testErr:         nil,
+			expectError:     false,
 			expectedPayload: &mockPayload{value: "pass"},
 		},
 		{
@@ -44,8 +44,8 @@ func Test_Fifo_Run(t *testing.T) {
 					return nil, errTest
 				}
 			}(),
-
-			testErr:         errTest,
+			testErr:         fmt.Errorf("pipeline stage : %v", errTest),
+			expectError:     true,
 			expectedPayload: nil,
 		},
 	}
@@ -87,9 +87,20 @@ func Test_Fifo_Run(t *testing.T) {
 			t.Fatalf("\nexpected:%v, got:%v \n", tc.expectedPayload, p)
 		}
 
-		if !errors.Is(err, tc.testErr) {
-			t.Fatalf("\nexpected:%v, got:%v \n", tc.testErr, err)
+		if tc.expectError {
+			if err == nil {
+				t.Fatalf("\nexpected:%v, got:%v \n", tc.testErr, err)
+			}
+
+			if err.Error() != tc.testErr.Error() {
+				t.Fatalf("\nexpected:%v, got:%v \n", tc.testErr, err)
+			}
+		} else {
+			if err != nil {
+				t.Fatalf("\nexpected:%v, got:%v \n", tc.testErr, err)
+			}
 		}
+
 	}
 }
 

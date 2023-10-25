@@ -3,8 +3,9 @@ package pipeline
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
+
+	"go.uber.org/multierr"
 )
 
 //this is user facing API
@@ -14,20 +15,14 @@ type Stage interface {
 }
 
 type Pipe struct {
-	stages  []Stage
-	errFunc ErrorFunc
+	stages []Stage
 }
 
 type Config struct {
-	OnError ErrorFunc
 }
 
 func (conf *Config) validate() {
-	if conf.OnError == nil {
-		conf.OnError = func(err error) {
-			log.Println("[pipe] ", err)
-		}
-	}
+
 }
 
 func NewPipe(conf *Config, stages ...Stage) *Pipe {
@@ -37,7 +32,6 @@ func NewPipe(conf *Config, stages ...Stage) *Pipe {
 	}
 
 	conf.validate()
-	p.OnError(conf.OnError)
 
 	return &p
 
@@ -113,18 +107,6 @@ func NewPipe(conf *Config, stages ...Stage) *Pipe {
 // 	return err
 // }
 
-func (p *Pipe) onError(err error) {
-	if p.errFunc != nil {
-		p.errFunc(err)
-	}
-}
-
-type ErrorFunc func(err error)
-
-func (p *Pipe) OnError(fn ErrorFunc) {
-	p.errFunc = fn
-}
-
 // ============================================================
 
 type Source interface {
@@ -139,17 +121,17 @@ type Destination interface {
 func (p *Pipe) Run(ctx context.Context, src Source, dst Destination) error {
 	// in := make(chan Payload)
 	// out := make(chan Payload)
-	errC := make(chan error)
-	pCtx, cancel := context.WithCancel(ctx)
-
-	var wg sync.WaitGroup
 
 	// create chan for every stage
 	stagesCh := make([]chan Payload, len(p.stages)+1)
+	errC := make(chan error, len(p.stages)+2)
+	pCtx, cancel := context.WithCancel(ctx)
+
 	for i := range stagesCh {
 		stagesCh[i] = make(chan Payload)
 	}
 
+	var wg sync.WaitGroup
 	// assign stageCh into stages
 	for i, v := range p.stages {
 		wg.Add(1)
@@ -185,8 +167,9 @@ func (p *Pipe) Run(ctx context.Context, src Source, dst Destination) error {
 	}()
 
 	var err error
-	for err = range errC {
-		p.onError(err)
+	for newErr := range errC {
+		//TODO: way of emitting error
+		err = multierr.Append(err, newErr)
 		cancel()
 	}
 

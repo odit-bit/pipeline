@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"sync"
 )
 
@@ -33,10 +34,13 @@ func (f *fifo) Run(ctx context.Context, in <-chan Payload, errCh chan<- error, o
 			// should check nill payload
 			newP, err := f.proc.Process(ctx, p)
 			if err != nil {
-				errCh <- err
-				continue
+				err = fmt.Errorf("pipeline stage : %v", err)
+				emitError(err, errCh)
+				return
 			}
+
 			if newP == nil {
+				p.MarkAsProcessed()
 				continue
 			}
 
@@ -157,4 +161,13 @@ done:
 		close(ch)
 	}
 	wg.Wait()
+}
+
+// emitError attempts to queue err to a buffered error channel. If the
+// channel is full, the error is dropped.
+func emitError(err error, errCh chan<- error) {
+	select {
+	case errCh <- err: // error emitted.
+	default: // error channel is full with other errors.
+	}
 }
